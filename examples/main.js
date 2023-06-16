@@ -1,5 +1,5 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
-import {glyphMap, heatmapGlyph} from './dist/index.min.js';
+import {glyphMap, heatmapGlyph} from '../dist/index.min.js';
 
 
 // import data
@@ -44,5 +44,8 @@ window.addEventListener('resize', () => {
   canvas.height = window.innerHeight - 100;
 });
 
+// select the div element
+const parentDiv = document.querySelector('#map');
 
-document.body.appendChild(container);
+// add the child element to the parent div
+parentDiv.appendChild(container);

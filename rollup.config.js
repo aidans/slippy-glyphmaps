@@ -20,12 +20,12 @@ export default {
     babel({ babelHelpers: "bundled" }), // transpilation
     terser(), 
     // del({
-    //   targets: "/var/www/html/npm_test/geoverview/index.min.js",
+    //   targets: "/var/www/html/npm_test/griddedglyphs/index.min.js",
     //   force: true,
     // }),
     // copy({
     //   targets: [
-    //     { src: "dist/index.min.js", dest: "/var/www/html/npm_test/geoverview" },
+    //     { src: "dist/index.min.js", dest: "/var/www/html/npm_test/griddedglyphs" },
     //   ],
     // }),
   ],

@@ -7,7 +7,6 @@ import {_drawCellBackground} from './drawcellbackground.js';
 import { slippyMap } from './slippy/slippymaps.js';
 import {_kernelSmooth } from './kernelsmooth.js';
 import {heatmapGlyph} from './heatmapglyphtype.js';
-// import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 import * as d3 from "d3"; 
 
 // console.log("yes",d3);

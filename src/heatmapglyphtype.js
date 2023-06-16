@@ -1,7 +1,5 @@
 import { _drawLegend } from "./drawlegend.js";
-// import { glyphMap } from "./base.js";
 import { _setupParamFns } from "./setupparams.js";
-// import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 import * as d3 from "d3"; 
 
 export const heatmapGlyph = (options) => {

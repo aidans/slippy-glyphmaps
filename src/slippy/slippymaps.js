@@ -14,7 +14,7 @@ export function slippyMap(options) {
     const useMercator =
         options.coordType && options.coordType != "mercator" ? false : true; //mercator||xy
 
-    console.log("Using Mercator=", useMercator);
+    // console.log("Using Mercator=", useMercator);
     const width = options.width;
     const height = options.height;
     const tileWidth = options.tileWidth ? options.tileWidth : 256;
@@ -74,7 +74,7 @@ export function slippyMap(options) {
                 options.initialBB[2],
                 options.initialBB[3]
             ];
-        console.log("coordExtent", coordExtent);
+        // console.log("coordExtent", coordExtent);
     } else coordExtent = [0, 0, width, height];
 
     //console.log(coordExtent);
