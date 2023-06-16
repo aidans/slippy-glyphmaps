@@ -9,7 +9,6 @@ import {_kernelSmooth } from './kernelsmooth.js';
 import {heatmapGlyph} from './heatmapglyphtype.js';
 import * as d3 from "d3"; 
 
-// console.log("yes",d3);
 
 function glyphMap(options) {
 
