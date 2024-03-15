@@ -23,7 +23,7 @@ function glyphMap(options) {
     let discretisationMode=options.discretisationMode?options.discretisationMode:"relativeToScreen";
     let discretisationShape=options.discretisationShape?options.discretisationShape:"grid";
     let kernelBW=options.kernelBW;
-    const getLocationFn=options.getLocationFn?options.getLocationFn:(row)=>[row.lon,row.lat];
+    let getLocationFn=options.getLocationFn?options.getLocationFn:(row)=>[row.lon,row.lat];
     const tooltip=true;
     const autoColourScale=options.autoColourScale;
     const showLegend=options.showLegend||options.showLegend===false?options.showLegend:false;
@@ -46,6 +46,8 @@ function glyphMap(options) {
       options.initialBB= [xExtent[0], yExtent[0], xExtent[1], yExtent[1]];
       console.log("initialBB",options.initialBB,xExtent,yExtent);
     }
+
+  const discretiserFn=options.discretiserFn?options.discretiserFn:_generate2DHeatMap;
   
   const useBlur=options.useBlur??false;
   
@@ -53,6 +55,8 @@ function glyphMap(options) {
   let kernelSmoothPropertyTypes;
 
   let alwaysReaggregate=false;//if true, always reaggregate, even if zoom/pan/cellsize/kernel not changes (useful for animate)
+  let flags={};//temporary flags - reset when drawn once
+  flags.reaggregate=false;
 
   let offSetMaupMode=options.offSetMaupMode!==undefined?options.offSetMaupMode:false;
   
@@ -115,8 +119,9 @@ function glyphMap(options) {
     //console.log("onpan",e);
       offSetCoordRef=panel.screenToCoord([e.offsetX,e.offsetY]);
   })
-  panel.setOnZoomFn((e) =>
-    offSetCoordRef = panel.screenToCoord([e.offsetX, e.offsetY]));
+  panel.setOnZoomFn((e) => {
+    offSetCoordRef = panel.screenToCoord([e.offsetX, e.offsetY])
+  });
 
   panel.data = data;
   if (options.setup) options.setup(panel,global);
@@ -151,7 +156,7 @@ function glyphMap(options) {
             localGrid[col][row]
           ) {
             tooltipDiv.style.visibility = "visible";
-            tooltipDiv.innerHTML = tooltipTextFn(localGrid[col][row],global);
+            tooltipDiv.innerHTML = tooltipTextFn(localGrid[col][row],global,panel);
             tooltipDiv.style.left = e.offsetX + 10 + "px";
             tooltipDiv.style.top = e.offsetY + 20 + "px";
             //console.log(localGrid[col][row]);
@@ -241,7 +246,45 @@ function glyphMap(options) {
   //--start public methods
   panel.redraw();
 
-    
+  panel.setOptions=(newOptions)=>{
+    for (const key of Object.keys(newOptions))
+      if (typeof newOptions[key]==='string')
+        eval(key+"="+"\""+newOptions[key]+"\"")
+          else
+        eval(key+"="+newOptions[key])
+    flags.reaggregate=true;
+    panel.redraw();
+  };
+
+  panel.setData=(data)=>{
+    panel.data=data;
+    flags.reaggregate=true;
+    panel.redraw();
+  };
+
+  
+  panel.setGlyph = (glyph) => {
+    if (glyph.kernelSmoothProperties)
+      kernelSmoothProperties = glyph.kernelSmoothProperties;
+    if (glyph.kernelSmoothPropertyTypes)
+      kernelSmoothPropertyTypes = glyph.kernelSmoothPropertyTypes;
+
+    if (glyph.scaleParams) scaleParams = glyph.scaleParams;
+    if (glyph.initFn) initFn = glyph.initFn;
+    if (glyph.preAggrFn) preAggrFn = glyph.preAggrFn;
+    if (glyph.aggrFn) aggrFn = glyph.aggrFn;
+    if (glyph.postAggrFn) postAggrFn = glyph.postAggrFn;
+    if (glyph.postKernelSmoothFn) postKernelSmoothFn = glyph.postKernelSmoothFn;
+    if (glyph.preDrawFn) preDrawFn = glyph.preDrawFn;
+    if (glyph.drawFn) drawFn = glyph.drawFn;
+    if (glyph.postDrawFn) postDrawFn = glyph.postDrawFn;
+    if (glyph.tooltipTextFn) tooltipTextFn = glyph.tooltipTextFn;
+
+    flags.reaggregate = true;
+    panel.redraw();
+  };
+
+  
   panel.getCoordBBInView= ()=>{
     const topLeftCoord = panel.screenToCoord([0, height]);
     const bottomRightCoord = panel.screenToCoord([width, 0])
@@ -307,7 +350,6 @@ function glyphMap(options) {
   let previousCellSize;
   let previousKernelBW;
     let previousMaupReduce;
-    
   //this is called by the slippymap panel everytime the mouse moves
   panel.addDrawFn(function(div,e){
     global.mouseX =(e&&e.offsetX)? e.offsetX:undefined;
@@ -316,8 +358,8 @@ function glyphMap(options) {
     
     let needToRedicretise=false;
     const transform=panel.getTransform();
-    if (alwaysReaggregate || !previousTransform || previousTransform.x!=transform.x || previousTransform.y!=transform.y ||previousTransform.z!=transform.z || previousCellSize!==cellSize||previousKernelBW!==kernelBW||previousMaupReduce!==reduceMaup){
-      
+    if (flags.reaggregate||alwaysReaggregate || !previousTransform || previousTransform.x!=transform.x || previousTransform.y!=transform.y ||previousTransform.z!=transform.z || previousCellSize!==cellSize||previousKernelBW!==kernelBW||previousMaupReduce!==reduceMaup){
+      flags.reaggregate=false;       
       needToRedicretise=true;
       if (!discretiser || previousCellSize!=cellSize){
         if (discretisationShape=="grid")
@@ -333,7 +375,7 @@ function glyphMap(options) {
           if (scaleParam.preAggrFn)
             scaleParam.preAggrFn(grid.flat(),cellSize,panel.ctx,global,panel);
       
-      grid = _generate2DHeatMap({
+      grid = discretiserFn({
         data: panel.data,
         width,
         height,
@@ -420,11 +462,13 @@ function glyphMap(options) {
     //console.log(grid);
      if (drawFn){
        panel.ctx.save();
-       for (let col=0;col<grid.length;col++){
-         for (let row=0;row<(grid[col]?grid[col].length:0);row++){
-           const xYCentre=discretiser.getXYCentre(col,row);
-           drawFn(grid[col][row], xYCentre[0]+ grid.xOffset, xYCentre[1]+ grid.yOffset, cellSize, panel.ctx,global,panel);  
-         } 
+       // for (let col=0;col<grid.length;col++){
+       //   for (let row=0;row<(grid[col]?grid[col].length:0);row++){
+       //     const xYCentre=discretiser.getXYCentre(col,row);
+       //     drawFn(grid[col][row], xYCentre[0]+ grid.xOffset, xYCentre[1]+ grid.yOffset, cellSize, panel.ctx,global,panel);  
+       //   } 
+      for (const spatialUnit of grid.flat()){
+           drawFn(spatialUnit, spatialUnit.getXCentre()+ grid.xOffset??0, spatialUnit.getYCentre()+ grid.yOffset??0, cellSize, panel.ctx,global,panel);  
        }
        panel.ctx.restore();
      }
@@ -462,9 +506,9 @@ function glyphMap(options) {
       if (showScaleParams){
         const labels=[];
           for (const scaleParam of scaleParams){
-            let s=scaleParam.name+": "+global[scaleParam.name];
+            let s=scaleParam.name+": "+scaleParam.numberFormatFn(global[scaleParam.name]);
             if (scaleParam.decKey||scaleParam.incKey||scaleParam.resetKey)
-              s+=" ("+(scaleParam.decKey?scaleParam.decKey:"<none>")+"/"+(scaleParam.incKey? scaleParam.incKey:"<none>")+"/"+(scaleParam.resetKey?scaleParam.resetKey:"<none>")+")";
+              s+=" ("+(scaleParam.decKey?scaleParam.decKey:"<none>")+"/"+(scaleParam.incKey?            scaleParam.incKey:"<none>")+"/"+(scaleParam.resetKey?scaleParam.resetKey:"<none>")+")";
           labels.push(s);
           }
 
