@@ -22,7 +22,7 @@ const container = glyphMap({
   //interactiveKernelBW: true,
   //kernelBW: 2,
   interactiveZoomPan: true,
-  // mapType: tile,
+  mapType: "CartoPositronNoLabel",
   // greyscale: true,
   tileWidth: 150,
 
