@@ -8,6 +8,7 @@ import { _drawCellBackground } from "./drawcellbackground.js";
 import { slippyMap } from "./slippy/slippymaps.js";
 import { _kernelSmooth } from "./kernelsmooth.js";
 import { heatmapGlyph } from "./heatmapglyphtype.js";
+import {createDiscretiserValue} from "./creategriddiscretizer.js";
 import * as d3 from "d3";
 
 function glyphMap(options) {
@@ -657,5 +658,6 @@ export {
   _kernelSmooth,
   glyphMap,
   slippyMap,
+  createDiscretiserValue,
   heatmapGlyph,
 };
