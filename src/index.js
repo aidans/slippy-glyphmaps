@@ -300,6 +300,7 @@ function glyphMap(options) {
       kernelSmoothPropertyTypes = glyph.kernelSmoothPropertyTypes;
 
     if (glyph.scaleParams) scaleParams = glyph.scaleParams;
+    if (glyph.discretiserFn) discretiserFn = glyph.discretiserFn;
     if (glyph.initFn) initFn = glyph.initFn;
     if (glyph.preAggrFn) preAggrFn = glyph.preAggrFn;
     if (glyph.aggrFn) aggrFn = glyph.aggrFn;
