@@ -66,7 +66,7 @@ function glyphMap(options) {
     console.log("initialBB", options.initialBB, xExtent, yExtent);
   }
 
-  const discretiserFn = options.discretiserFn
+  let discretiserFn = options.discretiserFn
     ? options.discretiserFn
     : _generate2DHeatMap;
 
