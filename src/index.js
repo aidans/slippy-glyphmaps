@@ -8,7 +8,7 @@ import { _drawCellBackground } from "./drawcellbackground.js";
 import { slippyMap } from "./slippy/slippymaps.js";
 import { _kernelSmooth } from "./kernelsmooth.js";
 import { heatmapGlyph } from "./heatmapglyphtype.js";
-import {createDiscretiserValue} from "./creategriddiscretizer.js";
+import { createDiscretiserValue } from "./creategriddiscretizer.js";
 import * as d3 from "d3";
 
 function glyphMap(options) {
@@ -90,7 +90,7 @@ function glyphMap(options) {
   let postAggrFn;
   let postKernelSmoothFn;
   let preDrawFn;
-  let drawFn;
+  let drawFn; //this can be an array of drawnFns
   let postDrawFn;
   let tooltipTextFn;
   let showScaleParams = false;
@@ -512,24 +512,29 @@ function glyphMap(options) {
       panel.ctx.restore();
     }
     //console.log(grid);
+
     if (drawFn) {
       panel.ctx.save();
+      //drawFn can be an array of functions. If so they are called for all the cells in order. This means that earlier ones won't occlude later ones
+      const drawFns = !Array.isArray(drawFn) ? [drawFn] : drawFn;
+
       // for (let col=0;col<grid.length;col++){
       //   for (let row=0;row<(grid[col]?grid[col].length:0);row++){
       //     const xYCentre=discretiser.getXYCentre(col,row);
       //     drawFn(grid[col][row], xYCentre[0]+ grid.xOffset, xYCentre[1]+ grid.yOffset, cellSize, panel.ctx,global,panel);
       //   }
-      for (const spatialUnit of grid.flat()) {
-        drawFn(
-          spatialUnit,
-          spatialUnit.getXCentre() + grid.xOffset ?? 0,
-          spatialUnit.getYCentre() + grid.yOffset ?? 0,
-          cellSize,
-          panel.ctx,
-          global,
-          panel
-        );
-      }
+      for (const theDrawFn of drawFns)
+        for (const spatialUnit of grid.flat()) {
+          theDrawFn(
+            spatialUnit,
+            spatialUnit.getXCentre() + grid.xOffset ?? 0,
+            spatialUnit.getYCentre() + grid.yOffset ?? 0,
+            cellSize,
+            panel.ctx,
+            global,
+            panel
+          );
+        }
       panel.ctx.restore();
     }
     // else{
