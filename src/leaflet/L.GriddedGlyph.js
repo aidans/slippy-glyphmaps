@@ -22,16 +22,13 @@ export const GriddedGlyphLayer = CanvasLayer.extend({
     },
 
     onAdd: function (map) {
-        console.log("[Glyph Layer] onAdd called with map:", map);
         CanvasLayer.prototype.onAdd.call(this, map);
         
         // Call initFn if it exists
         if (this.options.glyph?.initFn) {
-            console.log("[Glyph Layer] Calling initFn");
             this.options.glyph.initFn([], this.options.cellSize, this.global, this);
         }
         
-        console.log("[Glyph Layer] Calling needRedraw");
         this.needRedraw();
     },
 
@@ -64,11 +61,7 @@ export const GriddedGlyphLayer = CanvasLayer.extend({
     },
 
     onDrawLayer: function (info) {
-        console.log("[Glyph Layer] onDrawLayer called. Zoom:", info.zoom);
-        console.log("[Glyph Layer] Canvas size:", info.size);
-        console.log("[Glyph Layer] Map bounds:", this._map.getBounds());
-        console.log("[Glyph Layer] Map center:", this._map.getCenter());
-        console.log("[Glyph Layer] Map zoom:", this._map.getZoom());
+        // Reduced logging for performance
         
         const ctx = info.canvas.getContext('2d');
         ctx.clearRect(0, 0, info.canvas.width, info.canvas.height);
@@ -92,13 +85,16 @@ export const GriddedGlyphLayer = CanvasLayer.extend({
             // Convert to Leaflet latLng and then to canvas point
             const latLng = L.latLng(coord[1], coord[0]);
             const containerPoint = this._map.latLngToContainerPoint(latLng);
-            // The canvas is positioned at the top-left of the map, so we can use containerPoint directly
             const result = [containerPoint.x, containerPoint.y];
-            console.log(`[coordToScreenFn] Input: [${coord[0]}, ${coord[1]}], Output: [${result[0]}, ${result[1]}]`);
             
-            // Check if coordinates are within bounds
-            if (result[0] < 0 || result[0] > info.size.x || result[1] < 0 || result[1] > info.size.y) {
-                console.warn(`[coordToScreenFn] Coordinate [${result[0]}, ${result[1]}] is outside canvas bounds [0, 0, ${info.size.x}, ${info.size.y}]`);
+            // Only warn about out of bounds coordinates if they're significantly outside
+            // This reduces console spam while still catching major issues
+            const margin = 100; // Allow some margin for coordinates just outside view
+            if (result[0] < -margin || result[0] > info.size.x + margin || 
+                result[1] < -margin || result[1] > info.size.y + margin) {
+                if (Math.random() < 0.01) { // Only log 1% of warnings to reduce spam
+                    console.warn(`[coordToScreenFn] Coordinate [${result[0]}, ${result[1]}] is far outside canvas bounds [0, 0, ${info.size.x}, ${info.size.y}]`);
+                }
             }
             
             return result;
@@ -127,40 +123,22 @@ export const GriddedGlyphLayer = CanvasLayer.extend({
             // ... other options from the original implementation
         });
 
-        console.log("[Glyph Layer] Grid generated:", this.grid);
-        console.log("[Glyph Layer] Grid dimensions:", this.grid.length, "x", this.grid[0] ? this.grid[0].length : 0);
+        // Performance optimization: Reduced logging
         const populatedCells = this.grid.flat().filter(c => c);
-        console.log(`[Glyph Layer] Grid generated. Found ${populatedCells.length} populated cells.`);
         
-        // Debug: Check if populated cells have ts data
-        if (populatedCells.length > 0) {
-            const sampleCell = populatedCells[0];
-            console.log("[Glyph Layer] Sample cell:", sampleCell);
-            console.log("[Glyph Layer] Sample cell has ts:", !!sampleCell.ts);
-            if (sampleCell.ts) {
-                console.log("[Glyph Layer] Sample cell ts length:", sampleCell.ts.length);
-            }
-        } else {
-            console.log("[Glyph Layer] No populated cells found. Checking coordinate transformation...");
-            // Debug: Check a sample coordinate
-            if (data.length > 0) {
+        // Only log on first render or if there's an issue
+        if (!this._hasLoggedGrid || populatedCells.length === 0) {
+            console.log(`[Glyph Layer] Grid: ${this.grid.length}x${this.grid[0] ? this.grid[0].length : 0}, ${populatedCells.length} populated cells`);
+            this._hasLoggedGrid = true;
+            
+            if (populatedCells.length === 0 && data.length > 0) {
+                // Only debug coordinate transformation if there's actually a problem
                 const sampleData = data[0];
                 const location = this.options.getLocationFn(sampleData);
                 const screenCoord = coordToScreenFn(location);
-                console.log("[Glyph Layer] Sample data location:", location);
-                console.log("[Glyph Layer] Sample screen coord:", screenCoord);
-                console.log("[Glyph Layer] Canvas size:", info.size);
-                
-                // Check if coordinates are within bounds
                 const bounds = this._map.getBounds();
-                console.log("[Glyph Layer] Map bounds:", bounds);
-                console.log("[Glyph Layer] Sample location within bounds:", bounds.contains(L.latLng(location[1], location[0])));
-                
-                // Debug: Check if coordinates are being transformed correctly
-                const latLng = L.latLng(location[1], location[0]);
-                const containerPoint = this._map.latLngToContainerPoint(latLng);
-                console.log("[Glyph Layer] Direct transformation:", containerPoint);
-                console.log("[Glyph Layer] Screen coord from function:", screenCoord);
+                const withinBounds = bounds.contains(L.latLng(location[1], location[0]));
+                console.warn(`[Glyph Layer] No cells populated. Sample: ${location} -> ${screenCoord}, within bounds: ${withinBounds}`);
             }
         }
 
@@ -185,7 +163,6 @@ export const GriddedGlyphLayer = CanvasLayer.extend({
         }
 
         if (this.options.glyph?.drawFn) {
-            console.log("[Glyph Layer] Executing custom drawFn.");
             ctx.save();
             const drawFns = Array.isArray(this.options.glyph.drawFn) ? this.options.glyph.drawFn : [this.options.glyph.drawFn];
             for (const theDrawFn of drawFns) {

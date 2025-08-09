@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Performance Test - Gridded Glyphmap</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 600px; width: 100%; }
+        #stats {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            z-index: 1000;
+        }
+        .controls {
+            padding: 10px;
+            background: #f0f0f0;
+            margin-bottom: 10px;
+        }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "leaflet": "https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js",
+            "d3": "https://cdn.jsdelivr.net/npm/d3@7/+esm"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div class="controls">
+        <h3>Performance Test</h3>
+        <button onclick="startPerfTest()">Start Performance Test</button>
+        <button onclick="clearConsole()">Clear Console</button>
+        <span id="perfStatus">Ready</span>
+    </div>
+    
+    <div id="stats">
+        <div>Render Time: <span id="renderTime">--</span>ms</div>
+        <div>Data Points: <span id="dataCount">--</span></div>
+        <div>Grid Cells: <span id="cellCount">--</span></div>
+        <div>Zoom Level: <span id="zoomLevel">--</span></div>
+    </div>
+    
+    <div id="map"></div>
+
+    <script type="module">
+        import * as d3 from "d3";
+        import * as L from "leaflet";
+        import { GriddedGlyphLayer } from "../dist/gridded-glyphmaps.leaflet.min.js";
+
+        let map, glyphLayer, perfData = {};
+
+        // Initialize map
+        map = L.map('map').setView([56.4619, -3.0430], 11);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CARTO'
+        }).addTo(map);
+
+        // Performance monitoring
+        function updateStats() {
+            document.getElementById('zoomLevel').textContent = map.getZoom().toFixed(1);
+            if (perfData.dataCount) {
+                document.getElementById('dataCount').textContent = perfData.dataCount.toLocaleString();
+            }
+            if (perfData.renderTime) {
+                document.getElementById('renderTime').textContent = perfData.renderTime.toFixed(1);
+            }
+        }
+
+        // Simple performance test
+        window.startPerfTest = async function() {
+            const status = document.getElementById('perfStatus');
+            status.textContent = "Loading data...";
+            
+            const startTime = performance.now();
+            
+            try {
+                const data = await d3.csv("./data/urban_parameters.csv");
+                const processedData = data.map(row => ({
+                    lat: +row.lat,
+                    long: +row.long,
+                    acc_supermarket: +row.acc_supermarket,
+                    acc_hospitals: +row.acc_hospitals,
+                    acc_gp: +row.acc_gp,
+                    acc_school: +row.acc_school,
+                    acc_employment: +row.acc_employment,
+                    acc_urbancentre: +row.acc_urbancentre
+                }));
+
+                perfData.dataCount = processedData.length;
+                
+                status.textContent = "Creating glyph layer...";
+                
+                if (glyphLayer) map.removeLayer(glyphLayer);
+                
+                const renderStart = performance.now();
+                
+                glyphLayer = new GriddedGlyphLayer({
+                    data: processedData,
+                    getLocationFn: (row) => [row.long, row.lat],
+                    cellSize: 40,
+                    discretisationShape: "grid",
+                    glyph: {
+                        aggrFn: (cell, row) => {
+                            if (!cell.records) cell.records = [];
+                            cell.records.push(row);
+                        },
+                        drawFn: (cell, x, y, cellSize, ctx) => {
+                            if (!cell || !cell.records) return;
+                            ctx.fillStyle = "#3388ff66";
+                            ctx.fillRect(x - cellSize/2, y - cellSize/2, cellSize, cellSize);
+                        }
+                    }
+                });
+                
+                glyphLayer.addTo(map);
+                
+                const renderEnd = performance.now();
+                perfData.renderTime = renderEnd - renderStart;
+                
+                const totalTime = performance.now() - startTime;
+                status.textContent = `Complete in ${totalTime.toFixed(0)}ms`;
+                
+                updateStats();
+                
+            } catch (error) {
+                status.textContent = "Error: " + error.message;
+                console.error(error);
+            }
+        };
+
+        window.clearConsole = function() {
+            console.clear();
+        };
+
+        map.on('zoomend moveend', updateStats);
+        updateStats();
+    </script>
+</body>
+</html>

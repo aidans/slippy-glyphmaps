@@ -1,5 +1,6 @@
 import * as L from 'leaflet';
 import { GriddedGlyphLayer } from './leaflet/L.GriddedGlyph.js';
+import { TiledGriddedGlyphLayer } from './leaflet/L.TiledGriddedGlyph.js';
 
 // Helper functions that were previously exported, for advanced customization
 import { _drawLegend } from "./drawlegend.js";
@@ -13,9 +14,10 @@ import { _kernelSmooth } from "./kernelsmooth.js";
 import { heatmapGlyph } from "./heatmapglyphtype.js";
 import { createDiscretiserValue } from "./creategriddiscretizer.js";
 
-// Export the layer class and helper functions for modular use
+// Export the layer classes and helper functions for modular use
 export {
-  GriddedGlyphLayer,
+  GriddedGlyphLayer,         // Original canvas-based implementation
+  TiledGriddedGlyphLayer,    // New tiled implementation (recommended)
   _drawLegend,
   _blur,
   _getGridDiscretiser,

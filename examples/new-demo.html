@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Urban Parameters - Gridded Glyphmap Demo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css">
+
+    <script type="importmap">
+    {
+        "imports": {
+            "leaflet": "https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js",
+            "d3": "https://cdn.jsdelivr.net/npm/d3@7/+esm"
+        }
+    }
+    </script>
+
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+        
+        .demo-controls {
+            padding: 20px;
+            background: #f5f5f5;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        
+        .demo-info {
+            padding: 10px;
+            background: #e8f4f8;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+    </style>
+
+    <script src="new-demo-script.js" type="module"></script>
+</head>
+
+<body>
+    <h1>Urban Parameters - Gridded Glyphmap Demo</h1>
+    
+    <div class="demo-info">
+        <strong>Demo Description:</strong> This demo visualizes urban accessibility parameters using gridded glyphmaps.
+        Each grid cell shows accessibility to different urban services (supermarkets, hospitals, GP, schools, employment, urban centres)
+        represented as colored squares within each cell.
+    </div>
+    
+    <div class="demo-controls">
+        <p><strong>Variables:</strong> 
+        <span style="color: #2e8b57;">Supermarket</span> | 
+        <span style="color: #ffa500;">Hospitals</span> | 
+        <span style="color: #00ff00;">GP</span> | 
+        <span style="color: #0000ff;">School</span> | 
+        <span style="color: #1e90ff;">Employment</span> | 
+        <span style="color: #ff1493;">Urban Centre</span>
+        </p>
+    </div>
+    
+    <div id="map"></div>
+</body>
+
+</html>
