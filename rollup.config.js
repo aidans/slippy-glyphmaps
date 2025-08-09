@@ -10,15 +10,14 @@ export default {
   input: "src/index.js",
   output: {
     format: "esm",
-    file: "dist/index.min.js",
-    name: "griddedglyphs",
-    globals: {d3: "d3"},
+    file: "dist/gridded-glyphmaps.leaflet.min.js",
   },
+  external: ["leaflet", "d3"],
   plugins: [
-    // commonjs(), 
-    noderesolve(), 
+    // commonjs(),
+    noderesolve(),
     babel({ babelHelpers: "bundled" }), // transpilation
-    terser(), 
+    terser(),
     // del({
     //   targets: "/var/www/html/npm_test/griddedglyphs/index.min.js",
     //   force: true,
