@@ -1,56 +1,35 @@
-import * as d3 from "d3";
-import * as L from "leaflet";
-import { _setupParamFns, GriddedGlyphLayer } from "../dist/gridded-glyphmaps.leaflet.min.js";
-
-console.log("Main.js loaded");
-console.log("GriddedGlyphLayer:", GriddedGlyphLayer);
-
-// Create a standard Leaflet map
-const map = L.map('map').setView([51.505, -0.09], 13);
-console.log("Map created:", map);
-
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-}).addTo(map);
+import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+import { glyphMap, heatmapGlyph, _setupParamFns } from "../dist/index.min.js";
 
 // import data
 async function getData(url) {
-  console.log("Fetching data from:", url);
   const response = await fetch(url);
   const data = await response.json();
-  console.log("Data loaded:", data.length, "records");
-  console.log("Sample data:", data[0]);
   return data;
 }
 
 const data = await getData("./data/data.json");
 
-// Center the map on the data
-const firstPoint = data[0];
-console.log("First point:", firstPoint);
-map.setView([firstPoint.lat, firstPoint.lon], 10);
-
-// Check map state
-console.log("Map center:", map.getCenter());
-console.log("Map bounds:", map.getBounds());
-console.log("Map size:", map.getSize());
-console.log("Map zoom:", map.getZoom());
-
-// Declare and add the gridded glyph layer
-console.log("Creating GriddedGlyphLayer with options:", {
-  data: data.length,
-  getLocationFn: "(function)",
-  cellSize: 35,
-  discretisationShape: "grid"
-});
-
-const glyphLayer = new GriddedGlyphLayer({
+// Declare glyphmap
+const container = glyphMap({
   data: data,
   getLocationFn: (row) => [row.lon, row.lat],
   cellSize: 35,
   discretisationShape: "grid",
-  
-  glyph: {
+  //discretisationMode: "relativeToMouse",
+  showLegend: false,
+  interactiveCellSize: true,
+  //interactiveKernelBW: true,
+  //kernelBW: 2,
+  interactiveZoomPan: true,
+  mapType: "CartoPositronNoLabel",
+  // greyscale: true,
+  tileWidth: 150,
+
+  width: 600,
+  height: 400,
+
+  customMap: {
     scaleParams: [
       _setupParamFns({
         name: "heightMaxV",
@@ -60,7 +39,7 @@ const glyphLayer = new GriddedGlyphLayer({
         incFn: (v) => v + v / 10,
         resetKey: "s",
         autoscale: true,
-        resetFn: (cells) =>
+        resetFn: (cells, global, panel) =>
           d3.max(
             cells.map((cell) =>
               cell && cell.ts ? d3.max(cell.ts.map((ts) => d3.max(ts))) : 0
@@ -69,21 +48,30 @@ const glyphLayer = new GriddedGlyphLayer({
       }),
     ],
 
+    //kernelSmoothProperties: ["ts", "count"],
+    //kernelSmoothPropertyTypes: ["array", "value"],
+
     initFn: (cells, cellSize, global, panel) => {
-      console.log("initFn called with:", { cells: cells.length, cellSize, global, panel });
-      global.numT = d3.max(panel.options.data.map((row) => row.ts.length));
-      console.log("Global numT set to:", global.numT);
+      global.numT = d3.max(panel.data.map((row) => row.ts.length));
     },
+
+    preAggrFn: (cells, cellSize, global, panel) => {},
 
     aggrFn: (cell, row, weight, global, panel) => {
       if (!cell.ts) cell.ts = [];
+      const sums = [];
+      const cs = [];
       cell.ts.push(row.ts);
       if (!cell.stations) cell.stations = [];
       if (!cell.stations.includes(row.name)) cell.stations.push(row.name);
     },
 
+    postAggrFn: (cells, cellSize, global, panel) => {},
+
     preDrawFn: (cells, cellSize, ctx, global, panel) => {
-      console.log("preDrawFn called with:", { cells: cells.length, cellSize, global });
+      // ctx.fillStyle = "#fff9";
+      // ctx.fillRect(0, 0, panel.getWidth(), panel.getHeight());
+
       global.heightScale = d3
         .scaleLinear()
         .domain([0, global.heightMaxV])
@@ -92,53 +80,90 @@ const glyphLayer = new GriddedGlyphLayer({
     },
 
     drawFn: (cell, x, y, cellSize, ctx, global, panel) => {
-      console.log("drawFn called for cell:", { cell, x, y, cellSize });
+      //console.log(x, y);
       if (cell && cell.ts && !cell.new) {
         const padding = 4;
         const incX = (cellSize - padding * 2) / global.numT;
-        const zoom = panel._map.getZoom();
 
-        // --- Corrected Drawing Logic ---
-        // The boundary points are relative to the cell, so we must translate
-        // them to the cell's absolute position on the canvas.
+        // get current zoom
+        let zoom = Math.log2(panel.getTransform().k).toFixed(2);
+        const mouse = [global.mouseX, global.mouseY];
+        // console.log("locafn", panel.screenToCoord(mouse));
+        // console.log("locafn", global.mouseCell.getXCentre());
+        // console.log(zoom);
+
+        //test screen coord
+        // const scoord = panel.screenToCoord([0, cellSize]);
+        // console.log("screencord", scoord);
+
+        //draw cell background
         const boundary = cell.getBoundary(padding);
-        const topLeftX = x - cellSize / 2;
-        const topLeftY = y - cellSize / 2;
-
-        // Draw cell background
-        ctx.fillStyle = zoom >= 12 ? "black" : "#cccb";
+        ctx.fillStyle = "#cccb";
+        if (zoom >= 12) ctx.fillStyle = "black";
         ctx.beginPath();
-        ctx.moveTo(topLeftX + boundary[0][0], topLeftY + boundary[0][1]);
-        for (let i = 1; i < boundary.length; i++) {
-          ctx.lineTo(topLeftX + boundary[i][0], topLeftY + boundary[i][1]);
-        }
+        ctx.moveTo(boundary[0][0], boundary[0][1]);
+        for (let i = 1; i < boundary.length; i++)
+          ctx.lineTo(boundary[i][0], boundary[i][1]);
         ctx.closePath();
         ctx.fill();
 
-        // Draw time series lines within the cell
         for (const ts of cell.ts) {
           ctx.beginPath();
-          ctx.strokeStyle = zoom >= 12 ? "red" : "#8557";
+          ctx.strokeStyle = "#8557";
+          if (zoom >= 12) ctx.strokeStyle = "red";
           for (let i = 0; i < ts.length; i++) {
-            const lineX = x - cellSize / 2 + padding + incX * i;
-            const lineY = y + cellSize / 2 - padding - global.heightScale(ts[i]);
-            if (i === 0) {
-                ctx.moveTo(lineX, lineY);
-            } else {
-                ctx.lineTo(lineX, lineY);
-            }
+            ctx.lineTo(
+              x - cellSize / 2 + padding + incX * i,
+              y + cellSize / 2 - padding - global.heightScale(ts[i])
+            );
           }
           ctx.stroke();
         }
       }
     },
+    postDrawFn: (cells, cellSize, ctx, global, panel) => {},
     tooltipTextFn: (cell) => {
-      return cell.stations ? cell.stations.join(', ') : "";
+      return cell.stations ? cell.stations : "";
     },
   },
 });
 
-console.log("GlyphLayer created:", glyphLayer);
+// const container = glyphMap({
+//   data: data,
+//   getLocationFn: (row) => [row.lon, row.lat],
+//   cellSize: 3,
+//   interactiveCellSize: true,
+//   interactiveKernelBW: true,
+//   kernelBW: 5,
+//   useBlur: true,
 
-glyphLayer.addTo(map);
-console.log("GlyphLayer added to map");
+//   //   width: window.innerWidth - 40,
+//   width: 600,
+//   height: 400,
+//   // height: window.innerHeight - 100,
+//   tileWidth: 150,
+//   greyscale: true,
+
+//   glyph: heatmapGlyph({
+//     valueFn: (row, global) => row.ts[row.ts.length - 1],
+//     type: "mean",
+//     colourScheme: d3.scaleSequential(d3.interpolatePurples),
+//     colourAutoscale: true,
+//     useTransparency: true,
+//     showLegend: false,
+//     numberFormatFn: (value) => +value.toFixed(3),
+//   }),
+// });
+
+const canvas = container.querySelector("canvas");
+
+window.addEventListener("resize", () => {
+  canvas.width = window.innerWidth - 40;
+  canvas.height = window.innerHeight - 100;
+});
+
+// select the div element
+const parentDiv = document.querySelector("#map");
+
+// add the child element to the parent div
+parentDiv.appendChild(container);

@@ -70,76 +70,83 @@ export const _generate2DHeatMap = function (options) {
     }
     //it's a point
     else {
-      const screenXY = coordToScreenFn(location);
-      //console.log(reduceMaup);
-      if (!reduceMaup) {
-        if (offSetMaupMode) {
-          for (let xOff = 0; xOff < cellSize; xOff += 3) {
-            for (let yOff = 0; yOff < cellSize; yOff += 3) {
-              colRows.push([
-                ...discretiser.getColRow(
-                  screenXY[0] + (xOff - cellSize / 2) - grid.xOffset,
-                  screenXY[1] + (xOff - cellSize / 2) - grid.yOffset
-                ),
-                yOff * cellSize + xOff,
-              ]);
+      if (
+        location[0] >= topLeftCoord[0] &&
+        location[0] <= bottomRightCoord[0] &&
+        location[1] >= topLeftCoord[1] &&
+        location[1] <= bottomRightCoord[1]
+      ) {
+        const screenXY = coordToScreenFn(location);
+        //console.log(reduceMaup);
+        if (!reduceMaup) {
+          if (offSetMaupMode) {
+            for (let xOff = 0; xOff < cellSize; xOff += 3) {
+              for (let yOff = 0; yOff < cellSize; yOff += 3) {
+                colRows.push([
+                  ...discretiser.getColRow(
+                    screenXY[0] + (xOff - cellSize / 2) - grid.xOffset,
+                    screenXY[1] + (xOff - cellSize / 2) - grid.yOffset
+                  ),
+                  yOff * cellSize + xOff,
+                ]);
+              }
             }
           }
+          colRows.push(
+            discretiser.getColRow(
+              screenXY[0] - grid.xOffset,
+              screenXY[1] - grid.yOffset
+            )
+          );
         }
-        colRows.push(
-          discretiser.getColRow(
+        //reducemaup
+        else {
+          console.log("mauping");
+          const colRow = discretiser.getColRow(
             screenXY[0] - grid.xOffset,
             screenXY[1] - grid.yOffset
-          )
-        );
-      }
-      //reducemaup
-      else {
-        console.log("mauping");
-        const colRow = discretiser.getColRow(
-          screenXY[0] - grid.xOffset,
-          screenXY[1] - grid.yOffset
-        );
-        const distX = screenXY[0] - grid.xOffset - colRow[0] * cellSize;
-        const distY = screenXY[1] - grid.yOffset - colRow[1] * cellSize;
-        //weights will be -ve/+ve depending on which side and range from 0.5 (edge) to 0 (middle)
-        let xWeight = distX / cellSize;
-        if (xWeight < 0.5) {
-          xWeight = -(0.5 - xWeight);
-        } else {
-          xWeight = xWeight - 0.5;
+          );
+          const distX = screenXY[0] - grid.xOffset - colRow[0] * cellSize;
+          const distY = screenXY[1] - grid.yOffset - colRow[1] * cellSize;
+          //weights will be -ve/+ve depending on which side and range from 0.5 (edge) to 0 (middle)
+          let xWeight = distX / cellSize;
+          if (xWeight < 0.5) {
+            xWeight = -(0.5 - xWeight);
+          } else {
+            xWeight = xWeight - 0.5;
+          }
+          let yWeight = distY / cellSize;
+          if (yWeight < 0.5) {
+            yWeight = -(0.5 - yWeight);
+          } else {
+            yWeight = yWeight - 0.5;
+          }
+          //This sample
+          colRows.push([
+            colRow[0],
+            colRow[1],
+            1 - (Math.abs(xWeight) + Math.abs(yWeight)) / 2, //average x/y weight
+            //1 - Math.abs(xWeight)
+          ]);
+          //The sample in the diagonal corner
+          colRows.push([
+            colRow[0] + (xWeight < 0 ? -1 : 1),
+            colRow[1] + (yWeight < 0 ? -1 : 1),
+            (Math.abs(xWeight) + Math.abs(yWeight)) / 2, //average x/y weight
+          ]);
+          //The sample to the left/right
+          colRows.push([
+            colRow[0] + (xWeight < 0 ? -1 : 1),
+            colRow[1],
+            Math.abs(xWeight), //x weight
+          ]);
+          //The sample to the top/bottom
+          colRows.push([
+            colRow[0],
+            colRow[1] + (yWeight < 0 ? -1 : 1),
+            Math.abs(yWeight), //y weight
+          ]);
         }
-        let yWeight = distY / cellSize;
-        if (yWeight < 0.5) {
-          yWeight = -(0.5 - yWeight);
-        } else {
-          yWeight = yWeight - 0.5;
-        }
-        //This sample
-        colRows.push([
-          colRow[0],
-          colRow[1],
-          1 - (Math.abs(xWeight) + Math.abs(yWeight)) / 2, //average x/y weight
-          //1 - Math.abs(xWeight)
-        ]);
-        //The sample in the diagonal corner
-        colRows.push([
-          colRow[0] + (xWeight < 0 ? -1 : 1),
-          colRow[1] + (yWeight < 0 ? -1 : 1),
-          (Math.abs(xWeight) + Math.abs(yWeight)) / 2, //average x/y weight
-        ]);
-        //The sample to the left/right
-        colRows.push([
-          colRow[0] + (xWeight < 0 ? -1 : 1),
-          colRow[1],
-          Math.abs(xWeight), //x weight
-        ]);
-        //The sample to the top/bottom
-        colRows.push([
-          colRow[0],
-          colRow[1] + (yWeight < 0 ? -1 : 1),
-          Math.abs(yWeight), //y weight
-        ]);
       }
     }
     // console.log(points.length);
@@ -154,17 +161,13 @@ export const _generate2DHeatMap = function (options) {
       ) {
         if (!grid[colRow[0]]) grid[colRow[0]] = [];
         if (!grid[colRow[0]][colRow[1]]) {
-          const col = colRow[0];
-          const row = colRow[1];
-          grid[col][row] = {
-            col: col,
-            row: row,
+          grid[colRow[0]][colRow[1]] = {
             getBoundary: (padding) =>
-              discretiser.getBoundary(col, row, padding),
+              discretiser.getBoundary(colRow[0], colRow[1], padding),
             getXCentre: () =>
-              discretiser.getXYCentre(col, row)[0] + grid.xOffset,
+              discretiser.getXYCentre(colRow[0], colRow[1])[0] + grid.xOffset,
             getYCentre: () =>
-              discretiser.getXYCentre(col, row)[1] + grid.yOffset,
+              discretiser.getXYCentre(colRow[0], colRow[1])[1] + grid.yOffset,
             getCellSize: () => cellSize,
           };
         }
